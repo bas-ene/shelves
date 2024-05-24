@@ -1,0 +1,18 @@
+package templs 
+
+import (
+	"shelves/libr"
+)
+
+templ HeadTemp(name string) {
+	<header>
+		<h3>Hello, { name } </h3>
+	</header>
+}
+
+templ BookComp(book libr.Book) {
+	<div>
+		<h3>{ book.Title }</h3>
+		<p>{ book.Authors[0] }</p>
+	</div>
+}
