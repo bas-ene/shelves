@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
-	"os"
+	"strings"
 
 	"shelves/libr"
 	"shelves/templs"
 	"strconv"
 )
+
+var SAVEFILE string = "./library.json"
 
 func isNumeric(s string) bool {
 	_, err := strconv.Atoi(s)
@@ -16,77 +19,77 @@ func isNumeric(s string) bool {
 	return err == nil
 }
 
-func checkIsbn(text string, lastChar rune) bool {
-	if lastChar == 0 {
-		return true
-	}
-	if lastChar == 'x' {
-		return len(text) == 10
-	}
-	if len(text) > 13 {
+func checkIsbn(isbn string) bool {
+	switch len(isbn) {
+	case 10:
+		if isNumeric(isbn) || (isNumeric(isbn[:9]) && isbn[9] == 'x') {
+			return true
+		}
+		return false
+	case 13:
+		return isNumeric(isbn)
+	default:
 		return false
 	}
-	return isNumeric(text)
 }
 
 func main() {
-	myLib, err := libr.LoadLibrary("./library.json")
+	myLib, err := libr.LoadLibrary(SAVEFILE)
 	if err != nil {
-		fmt.Println("Error while loading library: %w", err)
-		os.Exit(1)
+		log.Fatal("Could not retrieve library")
 	}
-	// bookApi := NewGoogleBooksApi(GOOGLEAPIKEY)
+	bookApi := NewGoogleBooksApi(GOOGLEAPIKEY)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/index.html")
+		return
+	})
+
+	http.HandleFunc("GET /library/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		templs.BookComp(myLib[0]).Render(r.Context(), w)
+		templs.LibraryComp(myLib).Render(r.Context(), w)
+		return
+	})
+
+	http.HandleFunc("GET /search", func(w http.ResponseWriter, r *http.Request) {
+		log.Print("Search: ")
+		isbn := r.URL.Query().Get("isbn")
+		log.Printf("ISBN: %s\n", isbn)
+		isbn = strings.TrimSpace(strings.ReplaceAll(isbn, "-", ""))
+		if checkIsbn(isbn) {
+			log.Println("Valid isbn, searching")
+			searched, _ := bookApi.SearchByIsbn(libr.ISBN(isbn))
+			log.Printf("Found: %v", searched)
+			templs.SearchedBooksComp(searched).Render(r.Context(), w)
+		} else {
+			log.Println("Invalid isbn")
+			w.Write([]byte{'f'})
+		}
+		return
+	})
+
+	http.HandleFunc("POST /add", func(w http.ResponseWriter, r *http.Request) {
+		defer myLib.Save(SAVEFILE)
+		r.ParseForm()
+		gId := r.PostFormValue("gId")
+		b, _ := bookApi.GetBook(gId)
+		myLib.AddBook(b)
+		templs.BookInLib(*b).Render(r.Context(), w)
+		return
+	})
+
+	http.HandleFunc("DELETE /remove/{gId}", func(w http.ResponseWriter, r *http.Request) {
+		defer myLib.Save(SAVEFILE)
+		gId := r.PathValue("gId")
+		if myLib.RemoveBook(gId) != nil {
+			return
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+		}
+		//TODO:ROAR TORNA NUOVA LIBRERIA? o riesco a togliere solo il libro?
+		return
 	})
 
 	fmt.Println("Listening on :9090")
 	http.ListenAndServe(":9090", nil)
 }
-
-// http.HandleFunc("GET /api/search/{isbn}", func(w http.ResponseWriter, r *http.Request) {
-// 	isbn := r.PathValue("isbn")
-// 	res, _ := bookApi.GetBookOptions(ISBN(isbn))
-// 	j, _ := json.MarshalIndent(res, "", "   ")
-// 	w.Write(j)
-// })
-//
-// //TODO: dovra diventare un POST
-// http.HandleFunc("GET /api/add/{googleId}", func(w http.ResponseWriter, r *http.Request) {
-// 	defer myLib.Save("./library.json")
-// 	gId := r.PathValue("googleId")
-// 	res, _ := bookApi.GetBook(gId)
-// 	myLib = append(myLib, *res)
-// 	j, _ := json.MarshalIndent(res, "", "   ")
-// 	w.Write(j)
-// })
-//
-// //TODO: dovra diventare un DELETE
-// http.HandleFunc("GET /api/remove/{googleId}", func(w http.ResponseWriter, r *http.Request) {
-// 	defer myLib.Save("./library.json")
-// 	gId := r.PathValue("googleId")
-// 	deletedBook := myLib.RemoveBook(gId)
-// 	j, _ := json.MarshalIndent(deletedBook, "", "   ")
-// 	w.Write(j)
-// })
-//
-// //TODO: DIVENTARE PUT
-// http.HandleFunc("GET /api/read/{googleId}", func(w http.ResponseWriter, r *http.Request) {
-// 	defer myLib.Save("./library.json")
-// 	gId := r.PathValue("googleId")
-// 	nPages, err := strconv.Atoi(r.URL.Query().Get("nPages"))
-// 	if err != nil {
-// 		str := "Parametro nPages deve essere un numero intero"
-// 		j, _ := json.Marshal(str)
-// 		w.Write(j)
-// 		return
-// 	}
-// 	book := myLib.ReadBook(gId, nPages)
-// 	j, _ := json.MarshalIndent(book, "", "   ")
-//
-// 	w.Write(j)
-// })
-//
-// log.Fatal(http.ListenAndServe(":9090", nil))

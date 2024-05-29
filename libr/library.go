@@ -20,6 +20,7 @@ type Book struct {
 	Price      float64  `json:"price"`
 	Currency   string   `json:"currency"`
 	PagesRead  int      `json:"pagesRead"`
+	ImgHref    string   `json:"imgHref"`
 }
 
 type Library []Book
@@ -43,7 +44,6 @@ func (lib *Library) RemoveBook(gId string) *Book {
 	var delBook *Book = nil
 
 	*lib = slices.DeleteFunc(*lib, func(b Book) bool {
-		fmt.Printf("%s %s", b.GoogleId, gId)
 		if b.GoogleId == gId {
 			delBook = &b
 			return true
@@ -66,6 +66,13 @@ func (lib *Library) ReadBook(gId string, nPages int) *Book {
 		}
 	}
 	return nil
+}
+
+func (lib *Library) AddBook(book *Book) {
+	if book == nil {
+		return
+	}
+	*lib = append(*lib, *book)
 }
 
 func LoadLibrary(filename string) (Library, error) {

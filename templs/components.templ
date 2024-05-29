@@ -11,8 +11,36 @@ templ HeadTemp(name string) {
 }
 
 templ BookComp(book libr.Book) {
-	<div>
-		<h3>{ book.Title }</h3>
-		<p>{ book.Authors[0] }</p>
+	<div id={ book.GoogleId } class="grid grid-cols-2">
+		if book.ImgHref != "" {
+			<img src={ book.ImgHref }/>
+		}
+		<div>
+			<h3>{ book.Title }</h3>
+			<p>{ book.Authors[0] }</p>
+		</div>
 	</div>
+}
+
+templ LibraryComp(lib libr.Library) {
+	<h4>Your Books </h4>
+	<div id="booksWrapper" class="">
+		for _, b := range lib {
+			@BookInLib(b)
+		}
+	</div>
+}
+
+templ BookInLib(b libr.Book) {
+	<div class="bookWrapper">
+		@BookComp(b)
+		<button type="button" name="gId" value={ b.GoogleId } hx-delete={ "/remove/" + b.GoogleId } hx-confirm="Sicuro?" hx-target="closest .bookWrapper">Remove</button>
+	</div>
+}
+
+templ SearchedBooksComp(books []*libr.Book) {
+	for _, b := range books {
+		@BookComp(*b)
+		<button name="gId" value={ b.GoogleId } class="add" hx-post="/add" hx-target="#booksWrapper" hx-swap="beforeend">Add</button>
+	}
 }
