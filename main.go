@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	gApi "shelves/googleApi"
 	"shelves/libr"
 	"shelves/templs"
 	"strconv"
@@ -38,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Could not retrieve library")
 	}
-	bookApi := NewGoogleBooksApi(GOOGLEAPIKEY)
+	bookApi := gApi.NewGoogleBooksApi(GOOGLEAPIKEY)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./static/index.html")
